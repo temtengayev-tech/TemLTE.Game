@@ -1,6 +1,7 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { fighters, type FighterId } from '../game/fighters'
 import { FullscreenButton } from './FullscreenButton'
+import { MobileFightControls } from './MobileFightControls'
 
 type SoloAction = 'idle' | 'run' | 'jump' | 'punch' | 'kick' | 'slide' | 'roundhouse'
 
@@ -11,12 +12,13 @@ export function SoloRing({ fighterId, onExit }: { fighterId: FighterId; onExit: 
   const keys = useRef(new Set<string>())
   const actionTimer = useRef<number>()
 
+  const perform = useCallback((next: SoloAction, duration = 500) => {
+    window.clearTimeout(actionTimer.current)
+    setAction(next)
+    actionTimer.current = window.setTimeout(() => setAction('idle'), duration)
+  }, [])
+
   useEffect(() => {
-    const perform = (next: SoloAction, duration = 500) => {
-      window.clearTimeout(actionTimer.current)
-      setAction(next)
-      actionTimer.current = window.setTimeout(() => setAction('idle'), duration)
-    }
     const down = (event: KeyboardEvent) => {
       if (['ArrowLeft', 'ArrowRight', 'Space', 'KeyA', 'KeyD', 'KeyW'].includes(event.code)) event.preventDefault()
       keys.current.add(event.code)
@@ -35,7 +37,7 @@ export function SoloRing({ fighterId, onExit }: { fighterId: FighterId; onExit: 
     }, 24)
     window.addEventListener('keydown', down); window.addEventListener('keyup', up)
     return () => { window.clearInterval(movement); window.clearTimeout(actionTimer.current); window.removeEventListener('keydown', down); window.removeEventListener('keyup', up) }
-  }, [])
+  }, [perform])
 
   return <main className="solo-ring">
     <header><button onClick={onExit}>← MODES</button><h1>FIGHTRON</h1><div><span>SOLO / OPEN RING</span><FullscreenButton /></div></header>
@@ -45,5 +47,14 @@ export function SoloRing({ fighterId, onExit }: { fighterId: FighterId; onExit: 
       <aside><small>OPEN TRAINING</small><strong>{fighter.name}</strong><p>No clock. No opponent. Own the ring.</p></aside>
     </section>
     <footer><span>A / D MOVE</span><span>W JUMP</span><span>E KICK</span><span>F PUNCH</span><span>R SLIDE</span><span>T ROUNDHOUSE</span></footer>
+    <MobileFightControls specialLabel="KICK" onMoveStart={direction => {
+      keys.current.delete(direction === 'left' ? 'ArrowRight' : 'ArrowLeft')
+      keys.current.add(direction === 'left' ? 'ArrowLeft' : 'ArrowRight')
+    }} onMoveEnd={() => { keys.current.delete('ArrowLeft'); keys.current.delete('ArrowRight') }} onJump={() => perform('jump', 700)} onAttack={next => {
+      if (next === 'special') perform('kick', 390)
+      else if (next === 'punch') perform('punch', 420)
+      else if (next === 'slide') perform('slide', 650)
+      else perform('roundhouse', 820)
+    }} />
   </main>
 }

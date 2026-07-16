@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { fighters, type FighterId } from '../game/fighters'
 import type { CareerResult } from './CareerMode'
 
+const roster = Object.keys(fighters) as FighterId[]
+
 const rumors = [
   'A contender was reportedly seen testing a new spinning attack behind closed doors.',
   'An anonymous cornerman claims a major rematch is already being negotiated.',
@@ -17,6 +19,14 @@ export function CareerNews({ results, championId, fighterId, opponentId, event, 
   const upset = [...results].reverse().find(result => result.upset)
   const knockout = [...results].reverse().find(result => result.detail.startsWith('KO'))
   const titleChange = [...results].reverse().find(result => result.titleChange)
+  const otherFighters = roster.filter(id => id !== fighterId && id !== opponentId)
+  const upcoming = otherFighters.reduce<Array<[FighterId, FighterId]>>((cards, id, index) => index % 2 === 0 && otherFighters[index + 1] ? [...cards, [id, otherFighters[index + 1]]] : cards, [])
+  const prediction = (first: FighterId, second: FighterId) => {
+    const firstPower = fighters[first].maxHealth + fighters[first].speed * 7 + (event * 13 + fighters[first].speed) % 22
+    const secondPower = fighters[second].maxHealth + fighters[second].speed * 7 + (event * 9 + fighters[second].speed) % 22
+    const firstPercent = Math.max(24, Math.min(76, Math.round(firstPower / (firstPower + secondPower) * 100)))
+    return [firstPercent, 100 - firstPercent] as const
+  }
   return <section className="career-news">
     <header><div><small>FCB NEWS NETWORK</small><h3>THE FIGHT WIRE</h3></div><b>LIVE · EVENT {event}</b></header>
     <div className="news-grid">
@@ -27,6 +37,7 @@ export function CareerNews({ results, championId, fighterId, opponentId, event, 
       <article><span>TRAINING WATCH</span><h4>THE ROSTER IS GETTING STRONGER</h4><p>Event {event} fighters enter camp with improved health, stamina and damage. Specialist techniques continue to evolve.</p></article>
       <article className="rumor-story"><span>RUMOR MILL · UNCONFIRMED</span><h4>THE PUBLIC IS TALKING</h4><p>{rumors[event % rumors.length]} FCB News has not independently confirmed the report.</p></article>
       <article className="public-poll"><span>FCB PUBLIC POLL</span><h4>{opponentId ? `WHO WINS: ${fighters[fighterId].name} OR ${fighters[opponentId].name}?` : 'SELECT AN OPPONENT TO OPEN THE POLL'}</h4>{opponentId && <div><button disabled={voted} onClick={() => { setVotes(([first, second]) => [first + 1, second]); setVoted(true) }}><b>{fighters[fighterId].name}</b><i style={{ width: `${votes[0] / (votes[0] + votes[1]) * 100}%` }} /><strong>{Math.round(votes[0] / (votes[0] + votes[1]) * 100)}%</strong></button><button disabled={voted} onClick={() => { setVotes(([first, second]) => [first, second + 1]); setVoted(true) }}><b>{fighters[opponentId].name}</b><i style={{ width: `${votes[1] / (votes[0] + votes[1]) * 100}%` }} /><strong>{Math.round(votes[1] / (votes[0] + votes[1]) * 100)}%</strong></button></div>}</article>
+      <article className="upcoming-polls"><span>UPCOMING FCB FIGHTS · PUBLIC PICKS</span><h4>EVENT {event} PREDICTIONS</h4><div>{upcoming.map(([first, second]) => { const [firstPercent, secondPercent] = prediction(first, second); return <section key={`${first}-${second}`}><header><b>{fighters[first].name}</b><em>VS</em><b>{fighters[second].name}</b></header><div><i style={{ width: `${firstPercent}%` }} /><span>{firstPercent}%</span><span>{secondPercent}%</span></div></section> })}</div></article>
     </div>
   </section>
 }
