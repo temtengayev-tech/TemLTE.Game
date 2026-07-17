@@ -27,7 +27,7 @@ export function SoloRing({ fighterId, onExit }: { fighterId: FighterId; onExit: 
       if (event.code === 'KeyF') perform('punch', 420)
       if (event.code === 'KeyE') perform('kick', 390)
       if (event.code === 'KeyR') perform('slide', 650)
-      if (event.code === 'KeyT') perform('roundhouse', 820)
+      if (event.code === 'KeyT') perform('roundhouse', 1000)
     }
     const up = (event: KeyboardEvent) => keys.current.delete(event.code)
     const movement = window.setInterval(() => {
@@ -54,7 +54,7 @@ export function SoloRing({ fighterId, onExit }: { fighterId: FighterId; onExit: 
       if (next === 'special') perform('kick', 390)
       else if (next === 'punch') perform('punch', 420)
       else if (next === 'slide') perform('slide', 650)
-      else perform('roundhouse', 820)
+      else perform('roundhouse', 1000)
     }} />
   </main>
 }
