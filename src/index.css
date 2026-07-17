@@ -707,3 +707,18 @@ body:has(.victory-celebration) .fight-result { position: fixed; z-index: 50; rig
 .career-fighter-trait { max-width: 1050px; margin: 24px auto; padding: 20px; border-left: 5px solid #ffd058; background: linear-gradient(110deg, #29200f, #111 62%); }.career-fighter-trait > small { color: #ffd058; font-size: 8px; font-weight: 1000; letter-spacing: .2em; }.career-fighter-trait h3 { margin: 5px 0; }.career-fighter-trait p { color: #aaa; font-size: 11px; }.career-fighter-trait > div { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 13px; }.career-fighter-trait span { padding: 9px; border: 1px solid #3c382e; color: #aaa; background: #151515; font-size: 8px; }.career-fighter-trait span b { display: block; margin-top: 3px; color: #fff; font-size: 15px; }@media (max-width: 700px) { .career-fighter-trait > div { grid-template-columns: repeat(2, 1fr); } }
 .ai-news-refresh { padding: 9px 12px; border: 1px solid #d3262e; color: #fff; background: #d3262e; font-size: 8px; font-weight: 1000; cursor: pointer; }.ai-news-refresh:disabled { opacity: .55; }.news-grid .ai-story { background-color: #111; }.news-grid .ai-story span { color: #ffd058; }.news-grid .ai-prediction { grid-column: 1 / -1; }.ai-prediction > div { position: relative; display: flex; justify-content: space-between; overflow: hidden; margin: 12px 0; padding: 11px; background: #292929; }.ai-prediction > div i { position: absolute; inset: 0 auto 0 0; background: linear-gradient(90deg, #981e25, #d3262e); }.ai-prediction > div b { position: relative; z-index: 1; font-size: 9px; }.ai-news-error { border-left: 4px solid #ffd058; }
 .standard-winner-animation::before, .standard-winner-animation::after { display: none !important; }
+
+/* Keep knocked-out fighters grounded. The old 68px downward travel pushed
+   rotated sprites through the cage floor and made them appear to vanish. */
+@keyframes knockout-left {
+  0% { translate: 0 0; rotate: 0; scale: 1; }
+  35% { translate: -8px 0; rotate: -12deg; scale: 1; }
+  70% { translate: -22px 8px; rotate: -38deg; scale: 1 .92; }
+  100% { translate: -30px 12px; rotate: -58deg; scale: 1 .88; }
+}
+@keyframes knockout-right {
+  0% { translate: 0 0; rotate: 0; scale: 1; }
+  35% { translate: 8px 0; rotate: 12deg; scale: 1; }
+  70% { translate: 22px 8px; rotate: 38deg; scale: 1 .92; }
+  100% { translate: 30px 12px; rotate: 58deg; scale: 1 .88; }
+}
