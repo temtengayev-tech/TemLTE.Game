@@ -19,7 +19,7 @@ const judgeRound = (damage: Score): RoundResult => {
   const total = damage.player + damage.opponent
   return { winner: damage.player === damage.opponent ? 'draw' : damage.player > damage.opponent ? 'player' : 'opponent', playerDamage: damage.player, opponentDamage: damage.opponent, playerRatio: total ? damage.player / total : .5, opponentRatio: total ? damage.opponent / total : .5 }
 }
-const clamp = (value: number) => Math.max(10, Math.min(90, value))
+const clamp = (value: number) => Math.max(15, Math.min(85, value))
 const GAME_SPEED = .68
 const cannotAct = (action: Action) => ['stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(action)
 
@@ -106,7 +106,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
     setArena(current => {
       const attacker = current[side]; const target = current[side === 'player' ? 'opponent' : 'player']; const direction = Math.sign(target.x - attacker.x) || 1
       const shot = action === 'shoot' ? { id: now, from: attacker.x + direction * 4, to: target.x, owner: side } : current.shot
-      return { ...current, shot, [side]: { ...attacker, x: action === 'slide' ? clamp(attacker.x + direction * 11) : attacker.x, stamina: unlimitedStamina ? 300 : Math.max(0, attacker.stamina - staminaCost), action, actionUntil: now + (action === 'punch' ? 390 : action === 'kick' ? 390 : action === 'roundhouse' ? 1000 : action === 'slide' ? 720 : 540), actionId: attacker.actionId + 1, ammo: ammo.current[side], reloadUntil: action === 'shoot' && ammo.current[side] === 0 ? now + 2000 : attacker.reloadUntil } }
+      return { ...current, shot, [side]: { ...attacker, x: action === 'slide' ? clamp(attacker.x + direction * 4) : attacker.x, stamina: unlimitedStamina ? 300 : Math.max(0, attacker.stamina - staminaCost), action, actionUntil: now + (action === 'punch' ? 390 : action === 'kick' ? 390 : action === 'roundhouse' ? 1000 : action === 'slide' ? 720 : 540), actionId: attacker.actionId + 1, ammo: ammo.current[side], reloadUntil: action === 'shoot' && ammo.current[side] === 0 ? now + 2000 : attacker.reloadUntil } }
     })
     if (action === 'shoot') window.setTimeout(() => setArena(current => current.shot?.id === now ? { ...current, shot: null } : current), 270)
     window.setTimeout(() => setArena(current => {
@@ -251,16 +251,16 @@ function Fighter({ fighter, info, side, targetX, mmaAgent, winner, celebrating }
   const striking = ['punch', 'kick', 'slide', 'roundhouse'].includes(fighter.action)
   const mirrored = (targetX < fighter.x) !== (info.baseFacing === 'left')
   const sheet = mmaAgent ? 'agent-mma-frames' : info.sheet
-  const reactionClass = fighter.action === 'stagger' ? 'move-stagger' : fighter.action === 'knockdown' ? 'move-knockdown' : fighter.action === 'hardKnockdown' ? 'move-hard-knockdown' : fighter.action === 'missKnockdown' ? 'move-miss-knockdown' : ''
   const healthRatio = fighter.health / info.maxHealth
   const reactionTier = healthRatio >= .75 ? 'reaction-3' : healthRatio >= .5 ? 'reaction-4' : 'reaction-5'
-  const swept = fighter.lastDamage === 30 && Boolean(reactionClass)
+  const groundedAction = ['slide', 'roundhouse', 'stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(fighter.action)
+  const swept = fighter.lastDamage === 30 && groundedAction
   const damageLabel = `-${fighter.lastDamage}${swept ? ' LOW SWEEP' : ''}`
   const unstableActions: Action[] = ['slide', 'roundhouse', 'stagger', 'knockdown', 'hardKnockdown', 'missKnockdown']
   const visualAction = unstableActions.includes(fighter.action)
     ? 'idle'
     : fighter.action === 'kick' && (info.id === 'agent' || info.id === 'officer') ? 'punch' : fighter.action
-  return <div translate="no" className={`fighter fighter-${info.id} ${side}-side ${fighter.health <= 0 ? 'knocked-out' : ''} ${winner ? 'victory-pose' : celebrating ? 'standard-winner-pose' : ''} ${fighter.action === 'slide' ? 'sliding' : ''} ${reactionClass} ${reactionTier}`} style={{ left: `${fighter.x}%`, bottom: `${74 + fighter.y}px` }}>
+  return <div translate="no" className={`fighter fighter-${info.id} ${side}-side ${fighter.health <= 0 ? 'knocked-out' : ''} ${winner ? 'victory-pose' : celebrating ? 'standard-winner-pose' : ''} ${reactionTier}`} style={{ left: `${clamp(fighter.x)}%`, bottom: `${74 + (groundedAction ? 0 : Math.max(0, fighter.y))}px` }}>
     <div className={`fighter-facing ${!winner && mirrored ? 'mirrored' : ''}`}><div className={fighter.hitId ? 'damage-react' : ''}>
       {winner ? <div className="champion-animation" style={{ backgroundImage: `url('/assets/${info.id}-champion-frames.png')` }} aria-label={`${info.name} raising both hands with the FCB belt`} /> : celebrating ? <div className={`standard-winner-animation frame-sprite ${sheet} action-idle`} aria-label={`${info.name} raising both arms`} /> : <div className={`frame-sprite ${sheet} action-${visualAction}`} />}
       {striking && fighter.health > 0 && !celebrating && <i className={`hitbox ${fighter.action}`} />}
