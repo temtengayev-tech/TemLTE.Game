@@ -112,7 +112,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
     window.setTimeout(() => setArena(current => {
       if (current.result !== 'playing') return current
       const attacker = current[side]; const targetSide: Side = side === 'player' ? 'opponent' : 'player'; const target = current[targetSide]
-      const distance = Math.abs(attacker.x - target.x); const closeRange = action === 'punch' ? 11 : action === 'slide' ? 22 : action === 'roundhouse' ? 18 : 15
+      const distance = Math.abs(attacker.x - target.x); const closeRange = action === 'punch' ? 11 : action === 'slide' ? 14 : action === 'roundhouse' ? 15 : 15
       const targetHeightValid = action === 'slide' ? target.y < 4 : action === 'roundhouse' ? target.y < 12 : target.y < 18
       const roundhouseFailed = action === 'roundhouse' && Math.random() < .3
       const baseDamage = action === 'roundhouse' ? 60 : action === 'slide' ? 30 : action === 'kick' ? 20 : 10
@@ -225,8 +225,8 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
   return <main className="fight-screen"><header className="fight-hud"><button onClick={onExit}>← MENU</button><h1>FIGHTRON</h1><div className="fight-hud-tools"><span>{isVersus ? 'LOCAL 2 PLAYER' : isMma ? 'MMA MODE' : 'NORMAL MODE'}</span><button className="pause-button" onClick={() => setIsPaused(true)}>Ⅱ PAUSE</button><FullscreenButton /></div></header>
     {arena.result === 'playing' && <section className={isMma ? 'fight-bars mma-scoreboard' : 'fight-bars'}><Health fighter={arena.player} info={playerInfo} maxHealth={playerMaxHealth} maxStamina={playerMaxStamina} side="P1" special={playerSpecial} slideCooldown={Math.max(0, 5 - (performance.now() - lastSlide.current.player) / 1000)} /><strong>ROUND {arena.round}<small className="round-clock">{Number.isFinite(arena.roundTime) ? Math.ceil(arena.roundTime) : '∞'}</small><small className="round-score">{arena.roundWins.player} — {arena.roundWins.opponent}</small></strong><Health fighter={arena.opponent} info={opponentInfo} maxHealth={opponentMaxHealth} maxStamina={opponentMaxStamina} side={isVersus ? 'P2' : 'CPU'} special={opponentSpecial} slideCooldown={Math.max(0, 5 - (performance.now() - lastSlide.current.opponent) / 1000)} /></section>}
     <section className={isMma ? 'side-arena mma-arena' : 'side-arena'}><Backdrop mma={isMma} />
-      {(arena.result === 'playing' || arena.result === 'player') && <Fighter fighter={arena.player} info={playerInfo} side="player" targetX={arena.opponent.x} mmaAgent={setup.mode === 'mma' && setup.player === 'agent'} winner={beltAward && arena.result === 'player'} celebrating={arena.result === 'player'} />}
-      {(arena.result === 'playing' || arena.result === 'opponent') && <Fighter fighter={arena.opponent} info={opponentInfo} side="opponent" targetX={arena.player.x} mmaAgent={setup.mode === 'mma' && setup.opponent === 'agent'} winner={beltAward && arena.result === 'opponent'} celebrating={arena.result === 'opponent'} />}
+      {(arena.result === 'playing' || arena.result === 'player') && <Fighter fighter={arena.player} info={playerInfo} side="player" targetX={arena.opponent.x} mmaAgent={isMma && setup.player === 'agent'} winner={beltAward && arena.result === 'player'} celebrating={arena.result === 'player'} />}
+      {(arena.result === 'playing' || arena.result === 'opponent') && <Fighter fighter={arena.opponent} info={opponentInfo} side="opponent" targetX={arena.player.x} mmaAgent={isMma && setup.opponent === 'agent'} winner={beltAward && arena.result === 'opponent'} celebrating={arena.result === 'opponent'} />}
       {arena.result !== 'playing' && <AwardReferee />}
       {arena.shot && <ShotLine shot={arena.shot} />}<div className="pavement" /><div className="road"><span /><span /><span /></div>
       {arena.result !== 'playing' && <VictoryCelebration winner={arena.result === 'player' ? playerInfo : opponentInfo} side={arena.result} method={arena.resultMethod} titleFight={beltAward} defending={defendingChampionWon} />}
@@ -249,24 +249,18 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
 function Health({ fighter, info, maxHealth, maxStamina, side, special, slideCooldown }: { fighter: FighterState; info: FighterInfo; maxHealth: number; maxStamina: number; side: string; special: 'shoot' | 'kick'; slideCooldown: number }) { const reloading = fighter.reloadUntil > performance.now(); return <div className={`fighter-hud hud-${info.id}`}><span className={`hud-portrait frame-sprite ${info.sheet} action-idle`} /><section><em>{side} • {reloading ? 'RELOADING • 2 SECONDS' : special === 'shoot' ? `AMMO ${fighter.ammo} / 3` : info.style}</em><b>{info.name}</b><div className="health-track"><i style={{ width: `${fighter.health / maxHealth * 100}%` }} /></div><small key={fighter.hitId} className={fighter.hitId ? 'hp-readout changed' : 'hp-readout'}>HP: {Math.round(fighter.health)} / {maxHealth}</small><div className="stamina-track"><i style={{ width: `${fighter.stamina / maxStamina * 100}%` }} /></div><small>STAMINA: {Math.round(fighter.stamina)} / {maxStamina} · SLIDE {slideCooldown > 0 ? `${slideCooldown.toFixed(1)}s` : 'READY'}</small></section></div> }
 function Fighter({ fighter, info, side, targetX, mmaAgent, winner, celebrating }: { fighter: FighterState; info: FighterInfo; side: Side; targetX: number; mmaAgent: boolean; winner: boolean; celebrating: boolean }) {
   const striking = ['punch', 'kick', 'slide', 'roundhouse'].includes(fighter.action)
-  const mirrored = (targetX < fighter.x) !== (info.baseFacing === 'left')
+  const sourceFacesLeft = fighter.action === 'roundhouse' || info.baseFacing === 'left'
+  const mirrored = (targetX < fighter.x) !== sourceFacesLeft
   const sheet = mmaAgent ? 'agent-mma-frames' : info.sheet
   const healthRatio = fighter.health / info.maxHealth
   const reactionTier = healthRatio >= .75 ? 'reaction-3' : healthRatio >= .5 ? 'reaction-4' : 'reaction-5'
   const groundedAction = ['slide', 'roundhouse', 'stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(fighter.action)
   const swept = fighter.lastDamage === 30 && groundedAction
   const damageLabel = `-${fighter.lastDamage}${swept ? ' LOW SWEEP' : ''}`
-  const isGunlessFighter = info.id === 'agent' || info.id === 'officer'
-  const visualAction: Action = fighter.action === 'slide'
-    ? 'punch'
-    : fighter.action === 'roundhouse'
-      ? isGunlessFighter ? 'punch' : 'kick'
-      : ['stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(fighter.action)
-        ? 'idle'
-        : fighter.action === 'kick' && isGunlessFighter ? 'punch' : fighter.action
+  const visualAction = fighter.action
   return <div translate="no" className={`fighter fighter-${info.id} ${side}-side ${fighter.health <= 0 ? 'knocked-out' : ''} ${winner ? 'victory-pose' : celebrating ? 'standard-winner-pose' : ''} ${reactionTier}`} style={{ left: `${clamp(fighter.x)}%`, bottom: `${74 + (groundedAction ? 0 : Math.max(0, fighter.y))}px` }}>
     <div className={`fighter-facing ${!winner && mirrored ? 'mirrored' : ''}`}><div className={fighter.hitId ? 'damage-react' : ''}>
-      {winner ? <div className="champion-animation" style={{ backgroundImage: `url('/assets/${info.id}-champion-frames.png')` }} aria-label={`${info.name} raising both hands with the FCB belt`} /> : celebrating ? <div className={`standard-winner-animation frame-sprite ${sheet} action-idle`} aria-label={`${info.name} raising both arms`} /> : <div className={`frame-sprite ${sheet} action-${visualAction}`} />}
+      {winner ? <div className="champion-animation" style={{ backgroundImage: `url('/assets/${info.id}-champion-frames.png')` }} aria-label={`${info.name} raising both hands with the FCB belt`} /> : celebrating ? <div className={`standard-winner-animation frame-sprite ${sheet} action-idle`} aria-label={`${info.name} raising both arms`} /> : <div key={`${visualAction}-${fighter.actionId}`} className={`frame-sprite ${sheet} action-${visualAction}`} />}
       {striking && fighter.health > 0 && !celebrating && <i className={`hitbox ${fighter.action}`} />}
       {fighter.action === 'hardKnockdown' && <i className="counter-stars" aria-label="Stunned" />}
       {fighter.hitId > 0 && !celebrating && <><i className={`fighter-impact ${fighter.hitBy}`} /><b className={`damage-number ${swept ? 'low-sweep-damage' : ''}`} data-label={damageLabel} aria-label={damageLabel} /></>}
