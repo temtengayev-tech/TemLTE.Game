@@ -256,7 +256,10 @@ function Fighter({ fighter, info, side, targetX, mmaAgent, winner, celebrating }
   const reactionTier = healthRatio >= .75 ? 'reaction-3' : healthRatio >= .5 ? 'reaction-4' : 'reaction-5'
   const swept = fighter.lastDamage === 30 && Boolean(reactionClass)
   const damageLabel = `-${fighter.lastDamage}${swept ? ' LOW SWEEP' : ''}`
-  const visualAction = fighter.action === 'kick' && (info.id === 'agent' || info.id === 'officer') ? 'punch' : fighter.action
+  const unstableActions: Action[] = ['slide', 'roundhouse', 'stagger', 'knockdown', 'hardKnockdown', 'missKnockdown']
+  const visualAction = unstableActions.includes(fighter.action)
+    ? 'idle'
+    : fighter.action === 'kick' && (info.id === 'agent' || info.id === 'officer') ? 'punch' : fighter.action
   return <div translate="no" className={`fighter fighter-${info.id} ${side}-side ${fighter.health <= 0 ? 'knocked-out' : ''} ${winner ? 'victory-pose' : celebrating ? 'standard-winner-pose' : ''} ${fighter.action === 'slide' ? 'sliding' : ''} ${reactionClass} ${reactionTier}`} style={{ left: `${fighter.x}%`, bottom: `${74 + fighter.y}px` }}>
     <div className={`fighter-facing ${!winner && mirrored ? 'mirrored' : ''}`}><div className={fighter.hitId ? 'damage-react' : ''}>
       {winner ? <div className="champion-animation" style={{ backgroundImage: `url('/assets/${info.id}-champion-frames.png')` }} aria-label={`${info.name} raising both hands with the FCB belt`} /> : celebrating ? <div className={`standard-winner-animation frame-sprite ${sheet} action-idle`} aria-label={`${info.name} raising both arms`} /> : <div className={`frame-sprite ${sheet} action-${visualAction}`} />}

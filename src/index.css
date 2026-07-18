@@ -733,3 +733,17 @@ body:has(.victory-celebration) .fight-result { position: fixed; z-index: 50; rig
   background-position-x: 0 !important;
   animation: none !important;
 }
+
+/* Special moves must never alter the fighter container's floor position.
+   Their combat timing still runs in React; only the unstable generated-sheet
+   translations are disabled. */
+.fight-screen .fighter.sliding,
+.fight-screen .fighter.move-stagger,
+.fight-screen .fighter.move-knockdown,
+.fight-screen .fighter.move-hard-knockdown,
+.fight-screen .fighter.move-miss-knockdown {
+  animation: none !important;
+  translate: 0 0 !important;
+  rotate: 0deg !important;
+  scale: 1 !important;
+}
