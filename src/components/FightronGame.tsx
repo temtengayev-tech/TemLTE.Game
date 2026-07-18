@@ -256,10 +256,14 @@ function Fighter({ fighter, info, side, targetX, mmaAgent, winner, celebrating }
   const groundedAction = ['slide', 'roundhouse', 'stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(fighter.action)
   const swept = fighter.lastDamage === 30 && groundedAction
   const damageLabel = `-${fighter.lastDamage}${swept ? ' LOW SWEEP' : ''}`
-  const unstableActions: Action[] = ['slide', 'roundhouse', 'stagger', 'knockdown', 'hardKnockdown', 'missKnockdown']
-  const visualAction = unstableActions.includes(fighter.action)
-    ? 'idle'
-    : fighter.action === 'kick' && (info.id === 'agent' || info.id === 'officer') ? 'punch' : fighter.action
+  const isGunlessFighter = info.id === 'agent' || info.id === 'officer'
+  const visualAction: Action = fighter.action === 'slide'
+    ? 'punch'
+    : fighter.action === 'roundhouse'
+      ? isGunlessFighter ? 'punch' : 'kick'
+      : ['stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(fighter.action)
+        ? 'idle'
+        : fighter.action === 'kick' && isGunlessFighter ? 'punch' : fighter.action
   return <div translate="no" className={`fighter fighter-${info.id} ${side}-side ${fighter.health <= 0 ? 'knocked-out' : ''} ${winner ? 'victory-pose' : celebrating ? 'standard-winner-pose' : ''} ${reactionTier}`} style={{ left: `${clamp(fighter.x)}%`, bottom: `${74 + (groundedAction ? 0 : Math.max(0, fighter.y))}px` }}>
     <div className={`fighter-facing ${!winner && mirrored ? 'mirrored' : ''}`}><div className={fighter.hitId ? 'damage-react' : ''}>
       {winner ? <div className="champion-animation" style={{ backgroundImage: `url('/assets/${info.id}-champion-frames.png')` }} aria-label={`${info.name} raising both hands with the FCB belt`} /> : celebrating ? <div className={`standard-winner-animation frame-sprite ${sheet} action-idle`} aria-label={`${info.name} raising both arms`} /> : <div className={`frame-sprite ${sheet} action-${visualAction}`} />}
