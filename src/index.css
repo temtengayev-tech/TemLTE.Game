@@ -723,17 +723,6 @@ body:has(.victory-celebration) .fight-result { position: fixed; z-index: 50; rig
   100% { translate: 30px 12px; rotate: 58deg; scale: 1 .88; }
 }
 
-/* Stability fallback: several generated action sheets contain transparent
-   cells. Keep gameplay visible by holding the first valid cell for each
-   action; movement, hit timing and physics continue to run normally. */
-.fight-screen .fighter .frame-sprite {
-  display: block !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  background-position-x: 0 !important;
-  animation: none !important;
-}
-
 /* Special moves must never alter the fighter container's floor position.
    Their combat timing still runs in React; only the unstable generated-sheet
    translations are disabled. */
