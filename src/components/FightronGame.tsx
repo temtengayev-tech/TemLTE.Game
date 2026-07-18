@@ -20,7 +20,7 @@ const judgeRound = (damage: Score): RoundResult => {
   return { winner: damage.player === damage.opponent ? 'draw' : damage.player > damage.opponent ? 'player' : 'opponent', playerDamage: damage.player, opponentDamage: damage.opponent, playerRatio: total ? damage.player / total : .5, opponentRatio: total ? damage.opponent / total : .5 }
 }
 const clamp = (value: number) => Math.max(15, Math.min(85, value))
-const GAME_SPEED = .68
+const GAME_SPEED = .9
 const cannotAct = (action: Action) => ['stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(action)
 
 type CareerFightResult = { won: boolean; winner: FighterInfo['id']; method: 'knockout' | 'decision'; playerRounds: number; opponentRounds: number; finishRound: number }
@@ -165,7 +165,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
         const move = (state: FighterState, left: boolean, right: boolean, speed: number, side: Side) => {
           if (cannotAct(state.action) && now < state.actionUntil) return { ...state, velocityX: 0 }
           const direction = Number(right) - Number(left); const sprint = keys.current.has('ShiftLeft') && state.stamina > 0
-          const targetVelocity = direction * speed * (sprint ? 1.5 : 1); const smoothing = 1 - Math.exp(-18 * motionDt)
+          const targetVelocity = direction * speed * (sprint ? 1.5 : 1); const smoothing = 1 - Math.exp(-28 * motionDt)
           const velocityX = state.velocityX + (targetVelocity - state.velocityX) * smoothing
           const next = { ...state, velocityX, x: clamp(state.x + velocityX * motionDt), stamina: unlimitedStamina ? 300 : sprint && direction ? Math.max(0, state.stamina - 24 * motionDt) : state.stamina }
           next.velocityY -= 900 * motionDt; next.y = Math.max(0, next.y + next.velocityY * motionDt); if (next.y === 0) next.velocityY = 0
