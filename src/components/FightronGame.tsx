@@ -22,6 +22,7 @@ const judgeRound = (damage: Score): RoundResult => {
 const clamp = (value: number) => Math.max(15, Math.min(85, value))
 const GAME_SPEED = .9
 const cannotAct = (action: Action) => ['stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(action)
+const isAttacking = (action: Action) => ['punch', 'kick', 'shoot', 'slide', 'roundhouse'].includes(action)
 
 type CareerFightResult = { won: boolean; winner: FighterInfo['id']; method: 'knockout' | 'decision'; playerRounds: number; opponentRounds: number; finishRound: number }
 export type CareerUpgrades = { health: number; stamina: number; damage: number; slide: number; roundhouse: number }
@@ -164,6 +165,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
         const motionDt = dt * GAME_SPEED
         const move = (state: FighterState, left: boolean, right: boolean, speed: number, side: Side) => {
           if (cannotAct(state.action) && now < state.actionUntil) return { ...state, velocityX: 0 }
+          if (state.y === 0 && isAttacking(state.action) && now < state.actionUntil) return { ...state, velocityX: 0 }
           const direction = Number(right) - Number(left); const sprint = keys.current.has('ShiftLeft') && state.stamina > 0
           const targetVelocity = direction * speed * (sprint ? 1.5 : 1); const smoothing = 1 - Math.exp(-28 * motionDt)
           const velocityX = state.velocityX + (targetVelocity - state.velocityX) * smoothing
@@ -179,15 +181,16 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
         if (!isVersus) {
           const distance = Math.abs(opponent.x - player.x); const stop = opponentSpecial === 'shoot' ? 28 : 10
           const needsSpace = opponent.stamina < 35 && distance < 18
-          if (needsSpace) opponent.x = clamp(opponent.x - Math.sign(player.x - opponent.x) * opponentInfo.speed * .55 * motionDt)
-          else if (distance > stop) opponent.x = clamp(opponent.x + Math.sign(player.x - opponent.x) * opponentInfo.speed * .65 * motionDt)
+          const opponentCanMove = !isAttacking(opponent.action) || now >= opponent.actionUntil
+          if (opponentCanMove && needsSpace) opponent.x = clamp(opponent.x - Math.sign(player.x - opponent.x) * opponentInfo.speed * .55 * motionDt)
+          else if (opponentCanMove && distance > stop) opponent.x = clamp(opponent.x + Math.sign(player.x - opponent.x) * opponentInfo.speed * .65 * motionDt)
           if (now >= opponent.actionUntil) opponent.action = distance > stop ? 'run' : 'idle'
           const seesIncomingShot = player.action === 'shoot' && distance > 16 && distance < 62
           if (opponent.y === 0 && seesIncomingShot && Math.random() < .08) { opponent.velocityY = 420; opponent.action = 'jump'; opponent.actionUntil = now + 950 }
           if (cooldown <= 0) {
             const canPunch = distance <= 11 && player.y < 18
             const canSpecial = distance < (opponentSpecial === 'shoot' ? 60 : 15)
-            const canSlide = distance <= 22 && player.y < 4 && opponent.stamina >= 20 && now - lastSlide.current.opponent >= 5000
+            const canSlide = distance <= 14 && player.y < 4 && opponent.stamina >= 20 && now - lastSlide.current.opponent >= 5000
             const canRoundhouse = distance <= 18 && player.y < 12 && opponent.stamina >= 35 && now - lastRoundhouse.current.opponent >= 6000
             const playerAttacking = ['punch', 'kick', 'shoot', 'slide', 'roundhouse'].includes(player.action)
             if (canRoundhouse && Math.random() < .22) {
