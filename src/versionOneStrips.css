@@ -1,0 +1,22 @@
+/* Loaded after the legacy stylesheet so a strip always shows one frame. */
+@keyframes combat-version-one-strip {
+  from { background-position-x: 0; }
+  to { background-position-x: 100%; }
+}
+
+.fight-screen .frame-sprite.version-one-strip,
+.solo-ring .frame-sprite.version-one-strip {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1 !important;
+  margin: 0 !important;
+  overflow: hidden !important;
+  translate: none !important;
+  scale: 1 !important;
+  background-size: calc(var(--strip-frames, 12) * 100%) 100% !important;
+  background-position-y: 0 !important;
+  background-repeat: no-repeat !important;
+  animation: combat-version-one-strip .72s steps(var(--strip-steps, 11), end) both !important;
+}

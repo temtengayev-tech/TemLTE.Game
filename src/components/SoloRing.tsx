@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { fighters, type FighterId } from '../game/fighters'
 import { FullscreenButton } from './FullscreenButton'
 import { MobileFightControls } from './MobileFightControls'
+import { playFightSound } from '../lib/fightSounds'
 
 type SoloAction = 'idle' | 'run' | 'jump' | 'punch' | 'kick' | 'slide' | 'roundhouse'
 
@@ -14,6 +15,7 @@ export function SoloRing({ fighterId, onExit }: { fighterId: FighterId; onExit: 
 
   const perform = useCallback((next: SoloAction, duration = 500) => {
     window.clearTimeout(actionTimer.current)
+    if (next === 'punch' || next === 'kick' || next === 'slide' || next === 'roundhouse') playFightSound(next)
     setAction(next)
     actionTimer.current = window.setTimeout(() => setAction('idle'), duration)
   }, [])
