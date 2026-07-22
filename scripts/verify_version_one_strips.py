@@ -9,9 +9,12 @@ from PIL import Image
 FIGHTERS = ("agent", "officer", "john", "conor", "islam", "khabibi", "chalres", "max", "ilia", "daniel")
 ACTIONS = ("idle", "run", "jump", "punch", "kick", "roundhouse", "slide", "stagger", "knockdown", "recovery")
 EXTENDED_FIGHTERS = {"john", "conor"}
+ACTION_OVERRIDES = {("khabibi", "punch"): 12}
 
 
 def expected_frames(fighter: str, action: str) -> int:
+    if (fighter, action) in ACTION_OVERRIDES:
+        return ACTION_OVERRIDES[(fighter, action)]
     if fighter in EXTENDED_FIGHTERS:
         if action in {"punch", "kick", "roundhouse", "slide", "knockdown"}:
             return 12

@@ -28,7 +28,7 @@ const strips: Partial<Record<FighterId, Partial<Record<VersionOneAction, Version
     idle: { frames: 8, url: '/assets/version1-action-strips/khabibi-idle.png' },
     run: { frames: 8, url: '/assets/version1-action-strips/khabibi-run.png' },
     jump: { frames: 8, url: '/assets/version1-action-strips/khabibi-jump.png' },
-    punch: { frames: 8, url: '/assets/version1-action-strips/khabibi-punch.png' },
+    punch: { frames: 12, url: '/assets/version1-action-strips/khabibi-punch.png' },
     kick: { frames: 8, url: '/assets/version1-action-strips/khabibi-kick.png' },
     roundhouse: { frames: 8, url: '/assets/version1-action-strips/khabibi-roundhouse.png' },
     slide: { frames: 8, url: '/assets/version1-action-strips/khabibi-slide.png' },
