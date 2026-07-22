@@ -6,7 +6,7 @@ import { PrefightCard } from './PrefightCard'
 import { ArenaBackdrop } from './ArenaBackdrop'
 import { lasVegasVenue } from '../game/venues'
 import { playFightSound } from '../lib/fightSounds'
-import { getVersionOneStrip } from '../game/versionOneStrips'
+import { getVersionOneDesignUrl, getVersionOneStrip } from '../game/versionOneStrips'
 
 type Action = 'idle' | 'run' | 'jump' | 'shoot' | 'punch' | 'kick' | 'slide' | 'roundhouse' | 'stagger' | 'knockdown' | 'hardKnockdown' | 'missKnockdown'
 type Side = 'player' | 'opponent'
@@ -28,36 +28,42 @@ const clamp = (value: number) => Math.max(15, Math.min(85, value))
 const GAME_SPEED = .9
 const SLIDE_COOLDOWN = 3000
 const ROUNDHOUSE_COOLDOWN = 4000
+const SLIDE_FALL_DURATION = 1200
+const slideGroundTime = (healthRatio: number) => healthRatio >= .75 ? 400 : healthRatio >= .5 ? 900 : 1500
 const cannotAct = (action: Action) => ['stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(action)
 const isAttacking = (action: Action) => ['punch', 'kick', 'shoot', 'slide', 'roundhouse'].includes(action)
 
-type CareerFightResult = { won: boolean; winner: FighterInfo['id']; method: 'knockout' | 'decision'; playerRounds: number; opponentRounds: number; finishRound: number }
+export type CareerFightResult = { won: boolean; winner: FighterInfo['id']; method: 'knockout' | 'decision'; playerRounds: number; opponentRounds: number; finishRound: number; durationSeconds: number; damageTakenRatio: number }
 export type CareerUpgrades = { health: number; stamina: number; damage: number; slide: number; roundhouse: number }
+export type CareerModifiers = { health: number; stamina: number; damage: number }
 const noCareerUpgrades: CareerUpgrades = { health: 0, stamina: 0, damage: 0, slide: 0, roundhouse: 0 }
+const noCareerModifiers: CareerModifiers = { health: 1, stamina: 1, damage: 1 }
 
-export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = true, titleDefense = false, careerEvent = 1, careerUpgrades = noCareerUpgrades }: { setup: GameSetup; onExit: () => void; onCareerComplete?: (result: CareerFightResult) => void; isTitleFight?: boolean; titleDefense?: boolean; careerEvent?: number; careerUpgrades?: CareerUpgrades }) {
+export function FightronGame({ setup, onExit, onCareerComplete, onSparringComplete, sparring = false, isTitleFight = true, titleDefense = false, careerEvent = 1, careerUpgrades = noCareerUpgrades, careerModifiers = noCareerModifiers }: { setup: GameSetup; onExit: () => void; onCareerComplete?: (result: CareerFightResult) => void; onSparringComplete?: () => void; sparring?: boolean; isTitleFight?: boolean; titleDefense?: boolean; careerEvent?: number; careerUpgrades?: CareerUpgrades; careerModifiers?: CareerModifiers }) {
   const playerInfo = fighters[setup.player]; const opponentInfo = fighters[setup.opponent]
-  const maxRounds = setup.mode === 'shootout' ? 5 : setup.mode === 'brawl' ? 1 : 3
+  const maxRounds = sparring ? 1 : setup.mode === 'shootout' ? 5 : setup.mode === 'brawl' ? 1 : 3
   const roundDuration = setup.mode === 'short' ? 15 : setup.mode === 'brawl' ? Number.POSITIVE_INFINITY : 20
   const unlimitedStamina = setup.mode === 'brawl'
   const growth = setup.mode === 'career' ? Math.min(10, Math.max(0, careerEvent - 1)) : 0
   const playerProfile = combatProfiles[playerInfo.id]; const opponentProfile = combatProfiles[opponentInfo.id]
-  const playerMaxHealth = setup.mode === 'brawl' ? 500 : playerInfo.maxHealth + Math.round(growth * 10 * playerProfile.healthGrowth) + careerUpgrades.health * 20; const opponentMaxHealth = setup.mode === 'brawl' ? 500 : opponentInfo.maxHealth + Math.round(growth * 10 * opponentProfile.healthGrowth)
-  const playerMaxStamina = 300 + Math.round(growth * 6 * playerProfile.staminaGrowth) + careerUpgrades.stamina * 15; const opponentMaxStamina = 300 + Math.round(growth * 6 * opponentProfile.staminaGrowth)
+  const playerMaxHealth = Math.round((setup.mode === 'brawl' ? 500 : playerInfo.maxHealth + Math.round(growth * 10 * playerProfile.healthGrowth) + careerUpgrades.health * 20) * careerModifiers.health); const opponentMaxHealth = setup.mode === 'brawl' ? 500 : opponentInfo.maxHealth + Math.round(growth * 10 * opponentProfile.healthGrowth)
+  const playerMaxStamina = Math.round((300 + Math.round(growth * 6 * playerProfile.staminaGrowth) + careerUpgrades.stamina * 15) * careerModifiers.stamina); const opponentMaxStamina = 300 + Math.round(growth * 6 * opponentProfile.staminaGrowth)
   const isVersus = setup.mode === 'versus'; const isMmaMode = ['mma', 'career', 'shootout', 'short', 'brawl'].includes(setup.mode); const isMma = isMmaMode || (playerInfo.special === 'kick' && opponentInfo.special === 'kick')
   const playerSpecial = isMmaMode ? 'kick' : playerInfo.special; const opponentSpecial = isMmaMode ? 'kick' : opponentInfo.special
   const [arena, setArena] = useState(() => initialArena(playerMaxHealth, opponentMaxHealth, roundDuration, playerMaxStamina, opponentMaxStamina)); const arenaRef = useRef(arena); const keys = useRef(new Set<string>()); const previous = useRef(performance.now()); const lastAttack = useRef({ player: 0, opponent: 0 }); const reloads = useRef({ player: 0, opponent: 0 }); const ammo = useRef({ player: 3, opponent: 3 }); const jumpBuffer = useRef({ player: 0, opponent: 0 })
   const lastSlide = useRef({ player: -7000, opponent: -7000 })
   const lastRoundhouse = useRef({ player: -8000, opponent: -8000 })
   const previousSoundState = useRef({ playerHit: 0, opponentHit: 0, result: 'playing' as Arena['result'] })
+  const previousPhase = useRef<Arena['phase']>('fighting')
   const [showPrefight, setShowPrefight] = useState(true)
   const [isPaused, setIsPaused] = useState(false)
   const isMobile = useRef(window.matchMedia('(hover: none) and (pointer: coarse)').matches)
-  const beltAward = arena.result !== 'playing' && isTitleFight
+  const beltAward = arena.result !== 'playing' && isTitleFight && !sparring
   const defendingChampionWon = beltAward && ((titleDefense && arena.result === 'player') || (!titleDefense && arena.result === 'opponent'))
   const finishCareerFight = () => {
     if (!onCareerComplete || arena.result === 'playing') return
-    onCareerComplete({ won: arena.result === 'player', winner: arena.result === 'player' ? playerInfo.id : opponentInfo.id, method: arena.resultMethod ?? 'decision', playerRounds: arena.roundWins.player, opponentRounds: arena.roundWins.opponent, finishRound: arena.round })
+    const durationSeconds = Math.round((arena.round - 1) * 20 + Math.max(0, 20 - arena.roundTime))
+    onCareerComplete({ won: arena.result === 'player', winner: arena.result === 'player' ? playerInfo.id : opponentInfo.id, method: arena.resultMethod ?? 'decision', playerRounds: arena.roundWins.player, opponentRounds: arena.roundWins.opponent, finishRound: arena.round, durationSeconds, damageTakenRatio: Math.max(0, Math.min(1, 1 - arena.player.health / playerMaxHealth)) })
   }
   useEffect(() => { arenaRef.current = arena }, [arena])
   useEffect(() => {
@@ -67,13 +73,17 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
     if (arena.result !== 'playing' && previousState.result === 'playing' && arena.resultMethod === 'knockout') playFightSound('knockout', .75)
     previousSoundState.current = { playerHit: arena.player.hitId, opponentHit: arena.opponent.hitId, result: arena.result }
   }, [arena.opponent.action, arena.opponent.hitId, arena.player.action, arena.player.hitId, arena.result, arena.resultMethod])
+  useEffect(() => {
+    if (previousPhase.current === 'countdown' && arena.phase === 'fighting') playFightSound('roundBell', .7)
+    previousPhase.current = arena.phase
+  }, [arena.phase])
 
   const jumpPlayer = useCallback(() => {
     if (showPrefight || isPaused || arenaRef.current.phase !== 'fighting') return
     setArena(current => {
       const player = current.player
       return player.y === 0 && !cannotAct(player.action)
-        ? { ...current, player: { ...player, velocityY: 420, action: 'jump', actionUntil: performance.now() + 950 } }
+        ? { ...current, player: { ...player, velocityY: 450, action: 'jump', actionUntil: performance.now() + 840 } }
         : current
     })
   }, [isPaused, showPrefight])
@@ -86,7 +96,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
       if (!event.repeat && (event.code === 'Space' || event.code === 'KeyW' || (isVersus && event.code === 'KeyI'))) setArena(current => {
         const side: Side = event.code === 'KeyI' ? 'opponent' : 'player'; const jumper = current[side]
         jumpBuffer.current[side] = performance.now() + 140
-        return jumper.y === 0 && !cannotAct(jumper.action) ? { ...current, [side]: { ...jumper, velocityY: 420, action: 'jump', actionUntil: performance.now() + 950 } } : current
+        return jumper.y === 0 && !cannotAct(jumper.action) ? { ...current, [side]: { ...jumper, velocityY: 450, action: 'jump', actionUntil: performance.now() + 840 } } : current
       })
     }
     const up = (event: KeyboardEvent) => keys.current.delete(event.code)
@@ -103,7 +113,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
     if (action === 'slide' && now - lastSlide.current[side] < SLIDE_COOLDOWN) return
     if (action === 'roundhouse' && now - lastRoundhouse.current[side] < ROUNDHOUSE_COOLDOWN) return
     const attackProfile = side === 'player' ? playerProfile : opponentProfile
-    const attackDelay = (action === 'punch' ? 590 : action === 'kick' ? 560 : action === 'roundhouse' ? 1000 : 720) / attackProfile.attackSpeed
+    const attackDelay = (action === 'punch' ? 500 : action === 'kick' ? 500 : action === 'roundhouse' ? 880 : 650) / attackProfile.attackSpeed
     if (now - lastAttack.current[side] < attackDelay) return
     const staminaCost = action === 'roundhouse' ? 30 : action === 'slide' ? 20 : action === 'shoot' ? 10 : action === 'kick' ? 15 : 8
     if (!unlimitedStamina && arenaRef.current[side].stamina < staminaCost) return
@@ -123,7 +133,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
     setArena(current => {
       const attacker = current[side]; const target = current[side === 'player' ? 'opponent' : 'player']; const direction = Math.sign(target.x - attacker.x) || 1
       const shot = action === 'shoot' ? { id: now, from: attacker.x + direction * 4, to: target.x, owner: side } : current.shot
-      return { ...current, shot, [side]: { ...attacker, facing: direction < 0 ? 'left' : 'right', x: action === 'slide' ? clamp(attacker.x + direction * 4) : attacker.x, stamina: unlimitedStamina ? 300 : Math.max(0, attacker.stamina - staminaCost), action, actionUntil: now + (action === 'punch' ? 560 : action === 'kick' ? 560 : action === 'roundhouse' ? 1000 : action === 'slide' ? 720 : 540), actionId: attacker.actionId + 1, ammo: ammo.current[side], reloadUntil: action === 'shoot' && ammo.current[side] === 0 ? now + 2000 : attacker.reloadUntil } }
+      return { ...current, shot, [side]: { ...attacker, facing: direction < 0 ? 'left' : 'right', x: action === 'slide' ? clamp(attacker.x + direction * 4) : attacker.x, stamina: unlimitedStamina ? 300 : Math.max(0, attacker.stamina - staminaCost), action, actionUntil: now + (action === 'punch' ? 500 : action === 'kick' ? 500 : action === 'roundhouse' ? 880 : action === 'slide' ? 650 : 500), actionId: attacker.actionId + 1, ammo: ammo.current[side], reloadUntil: action === 'shoot' && ammo.current[side] === 0 ? now + 2000 : attacker.reloadUntil } }
     })
     if (action === 'shoot') window.setTimeout(() => setArena(current => current.shot?.id === now ? { ...current, shot: null } : current), 270)
     window.setTimeout(() => setArena(current => {
@@ -141,20 +151,20 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
       const rawDamage = action === 'shoot' ? (distance <= 62 && target.y < 23 ? Math.round((20 + careerDamage) * moveMultiplier) : 0) : distance <= closeRange && targetHeightValid && !roundhouseFailed ? Math.round((baseDamage + careerDamage + techniqueBonus) * moveMultiplier) : 0
       if (action === 'slide' && rawDamage === 0) return { ...current, [side]: { ...attacker, action: 'missKnockdown', actionUntil: now + 1100 } }
       if (action === 'roundhouse' && rawDamage === 0) return current
-      const damage = rawDamage; const inflictedDamage = Math.min(damage, target.health); const knockDirection = Math.sign(target.x - attacker.x) || 1
+      const damage = side === 'player' ? Math.round(rawDamage * careerModifiers.damage) : rawDamage; const inflictedDamage = Math.min(damage, target.health); const knockDirection = Math.sign(target.x - attacker.x) || 1
       const targetMaxHealth = targetSide === 'player' ? playerMaxHealth : opponentMaxHealth
       const canKnockout = ['punch', 'kick', 'roundhouse'].includes(action)
-      const healthAfterHit = canKnockout ? Math.max(0, target.health - damage) : Math.max(1, target.health - damage)
+      const healthAfterHit = sparring ? target.health : canKnockout ? Math.max(0, target.health - damage) : Math.max(1, target.health - damage)
       const healthRatio = healthAfterHit / targetMaxHealth
       const countered = ['punch', 'kick', 'shoot', 'slide', 'roundhouse'].includes(target.action); const slideReaction: Action = countered || healthRatio < .5 ? 'hardKnockdown' : 'knockdown'
-      const reactionTime = healthRatio >= .75 ? 1200 : healthRatio >= .5 ? 1700 : 2300
+      const reactionTime = SLIDE_FALL_DURATION + slideGroundTime(healthRatio)
       const reaction: Action = action === 'roundhouse' ? 'stagger' : action === 'slide' && rawDamage ? slideReaction : target.action
       const stunTime = healthRatio >= .75 ? 800 : healthRatio >= .5 ? 1200 : 1700
       const boughtStun = side === 'player' ? careerUpgrades.roundhouse * 200 : 0
       const reactionUntil = action === 'roundhouse' ? now + stunTime + boughtStun : action === 'slide' && rawDamage ? now + reactionTime : target.actionUntil
       return { ...current, roundDamage: { ...current.roundDamage, [side]: current.roundDamage[side] + inflictedDamage }, totalDamage: { ...current.totalDamage, [side]: current.totalDamage[side] + inflictedDamage }, [targetSide]: { ...target, x: action === 'slide' && rawDamage ? clamp(target.x + knockDirection * (countered ? 13 : 8)) : target.x, health: healthAfterHit, action: reaction, actionUntil: reactionUntil, hitId: damage ? now : target.hitId, hitBy: damage ? (action === 'shoot' ? 'shot' : 'strike') : target.hitBy, lastDamage: damage || target.lastDamage } }
-    }), action === 'punch' ? 275 : action === 'kick' ? 275 : action === 'roundhouse' ? 540 : action === 'slide' ? 360 : 225)
-  }, [careerUpgrades, growth, isPaused, opponentMaxHealth, opponentProfile, opponentSpecial, playerMaxHealth, playerProfile, playerSpecial, showPrefight, unlimitedStamina])
+    }), action === 'punch' ? 245 : action === 'kick' ? 250 : action === 'roundhouse' ? 470 : action === 'slide' ? 325 : 215)
+  }, [careerModifiers.damage, careerUpgrades, growth, isPaused, opponentMaxHealth, opponentProfile, opponentSpecial, playerMaxHealth, playerProfile, playerSpecial, showPrefight, sparring, unlimitedStamina])
 
   useEffect(() => {
     const onAttack = (event: KeyboardEvent) => {
@@ -189,8 +199,8 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
           const targetVelocity = direction * speed * (sprint ? 1.5 : 1); const smoothing = 1 - Math.exp(-28 * motionDt)
           const velocityX = state.velocityX + (targetVelocity - state.velocityX) * smoothing
           const next = { ...state, velocityX, facing: direction === 0 ? state.facing : direction < 0 ? 'left' as const : 'right' as const, x: clamp(state.x + velocityX * motionDt), stamina: unlimitedStamina ? 300 : sprint && direction ? Math.max(0, state.stamina - 24 * motionDt) : state.stamina }
-          next.velocityY -= 900 * motionDt; next.y = Math.max(0, next.y + next.velocityY * motionDt); if (next.y === 0) next.velocityY = 0
-          if (next.y === 0 && jumpBuffer.current[side] > now) { next.velocityY = 420; next.action = 'jump'; next.actionUntil = now + 950; jumpBuffer.current[side] = 0 }
+          next.velocityY -= 1100 * motionDt; next.y = Math.max(0, next.y + next.velocityY * motionDt); if (next.y === 0) next.velocityY = 0
+          if (next.y === 0 && jumpBuffer.current[side] > now) { next.velocityY = 450; next.action = 'jump'; next.actionUntil = now + 840; jumpBuffer.current[side] = 0 }
           if (next.y > 0) next.action = 'jump'; else if (now >= next.actionUntil) next.action = direction ? 'run' : 'idle'
           return next
         }
@@ -212,7 +222,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
           }
           if (now >= opponent.actionUntil) opponent.action = distance > stop ? 'run' : 'idle'
           const seesIncomingShot = player.action === 'shoot' && distance > 16 && distance < 62
-          if (opponent.y === 0 && seesIncomingShot && Math.random() < .08) { opponent.velocityY = 420; opponent.action = 'jump'; opponent.actionUntil = now + 950 }
+          if (opponent.y === 0 && seesIncomingShot && Math.random() < .08) { opponent.velocityY = 450; opponent.action = 'jump'; opponent.actionUntil = now + 840 }
           if (cooldown <= 0) {
             const canPunch = distance <= 11 && player.y < 18
             const canSpecial = distance < (opponentSpecial === 'shoot' ? 60 : 15)
@@ -228,7 +238,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
               cooldown = setup.opponent === 'conor' ? .48 : .68
               window.setTimeout(() => attack('opponent', usePunch ? 'punch' : 'special'), 0)
             } else if (opponent.y === 0 && Math.random() < .18) {
-              opponent.velocityY = 420; opponent.action = 'jump'; opponent.actionUntil = now + 950; cooldown = .75
+              opponent.velocityY = 450; opponent.action = 'jump'; opponent.actionUntil = now + 840; cooldown = .75
             } else cooldown = .2
           }
         }
@@ -254,8 +264,8 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
   return <main className="fight-screen"><header className="fight-hud"><button onClick={onExit}>← MENU</button><h1>FIGHTRON</h1><div className="fight-hud-tools"><span>{isVersus ? 'LOCAL 2 PLAYER' : isMma ? 'MMA MODE' : 'NORMAL MODE'}</span><button className="pause-button" onClick={() => setIsPaused(true)}>Ⅱ PAUSE</button><FullscreenButton /></div></header>
     {arena.result === 'playing' && <section className={isMma ? 'fight-bars mma-scoreboard' : 'fight-bars'}><Health fighter={arena.player} info={playerInfo} maxHealth={playerMaxHealth} maxStamina={playerMaxStamina} side="P1" special={playerSpecial} slideCooldown={Math.max(0, SLIDE_COOLDOWN / 1000 - (performance.now() - lastSlide.current.player) / 1000)} /><strong>ROUND {arena.round}<small className="round-clock">{Number.isFinite(arena.roundTime) ? Math.ceil(arena.roundTime) : '∞'}</small><small className="round-score">{arena.roundWins.player} — {arena.roundWins.opponent}</small></strong><Health fighter={arena.opponent} info={opponentInfo} maxHealth={opponentMaxHealth} maxStamina={opponentMaxStamina} side={isVersus ? 'P2' : 'CPU'} special={opponentSpecial} slideCooldown={Math.max(0, SLIDE_COOLDOWN / 1000 - (performance.now() - lastSlide.current.opponent) / 1000)} /></section>}
     <section className={isMma ? 'side-arena mma-arena venue-las-vegas' : 'side-arena'}><ArenaBackdrop isMma={isMma} venue={lasVegasVenue} />
-      {(arena.result === 'playing' || arena.result === 'player') && <Fighter fighter={arena.player} info={playerInfo} side="player" targetX={arena.opponent.x} mmaAgent={isMma && setup.player === 'agent'} winner={beltAward && arena.result === 'player'} celebrating={arena.result === 'player'} />}
-      {(arena.result === 'playing' || arena.result === 'opponent') && <Fighter fighter={arena.opponent} info={opponentInfo} side="opponent" targetX={arena.player.x} mmaAgent={isMma && setup.opponent === 'agent'} winner={beltAward && arena.result === 'opponent'} celebrating={arena.result === 'opponent'} />}
+      {(arena.result === 'playing' || arena.result === 'player') && <Fighter fighter={arena.player} info={playerInfo} side="player" targetX={arena.opponent.x} mmaAgent={isMma && setup.player === 'agent'} winner={beltAward && arena.result === 'player'} celebrating={arena.result === 'player'} mobileFight={isMobile.current} />}
+      {(arena.result === 'playing' || arena.result === 'opponent') && <Fighter fighter={arena.opponent} info={opponentInfo} side="opponent" targetX={arena.player.x} mmaAgent={isMma && setup.opponent === 'agent'} winner={beltAward && arena.result === 'opponent'} celebrating={arena.result === 'opponent'} mobileFight={isMobile.current} />}
       {arena.result !== 'playing' && <AwardReferee />}
       {arena.shot && <ShotLine shot={arena.shot} />}<div className="pavement" /><div className="road"><span /><span /><span /></div>
       {arena.result !== 'playing' && <VictoryCelebration winner={arena.result === 'player' ? playerInfo : opponentInfo} side={arena.result} method={arena.resultMethod} titleFight={beltAward} defending={defendingChampionWon} />}
@@ -265,7 +275,7 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
       keys.current.delete(direction === 'left' ? 'ArrowRight' : 'ArrowLeft')
       keys.current.add(direction === 'left' ? 'ArrowLeft' : 'ArrowRight')
     }} onMoveEnd={() => { keys.current.delete('ArrowLeft'); keys.current.delete('ArrowRight') }} onJump={jumpPlayer} onAttack={kind => attack('player', kind)} />
-    {arena.result !== 'playing' && <div className="fight-result"><h2>{arena.result === 'player' ? playerInfo.name : opponentInfo.name} WINS!</h2>{onCareerComplete ? <button onClick={finishCareerFight}>RETURN TO CAREER HUB</button> : <><button onClick={() => { ammo.current = { player: 3, opponent: 3 }; reloads.current = { player: 0, opponent: 0 }; lastSlide.current = { player: -7000, opponent: -7000 }; lastRoundhouse.current = { player: -8000, opponent: -8000 }; setArena(initialArena(playerMaxHealth, opponentMaxHealth, roundDuration, playerMaxStamina, opponentMaxStamina)); setShowPrefight(true) }}>REMATCH</button><button onClick={onExit}>MENU</button></>}</div>}
+    {arena.result !== 'playing' && <div className="fight-result"><h2>{sparring ? 'SPARRING COMPLETE' : `${arena.result === 'player' ? playerInfo.name : opponentInfo.name} WINS!`}</h2>{sparring ? <button onClick={onSparringComplete}>CONTINUE FIGHT WEEK →</button> : onCareerComplete ? <button onClick={finishCareerFight}>RETURN TO CAREER HUB</button> : <><button onClick={() => { ammo.current = { player: 3, opponent: 3 }; reloads.current = { player: 0, opponent: 0 }; lastSlide.current = { player: -7000, opponent: -7000 }; lastRoundhouse.current = { player: -8000, opponent: -8000 }; setArena(initialArena(playerMaxHealth, opponentMaxHealth, roundDuration, playerMaxStamina, opponentMaxStamina)); setShowPrefight(true) }}>REMATCH</button><button onClick={onExit}>MENU</button></>}</div>}
     {showPrefight && <PrefightCard player={playerInfo} opponent={opponentInfo} mode={setup.mode} venue={lasVegasVenue} onStart={() => {
       previous.current = performance.now()
       setArena(current => ({ ...current, phase: 'countdown', countdown: 3 }))
@@ -275,28 +285,32 @@ export function FightronGame({ setup, onExit, onCareerComplete, isTitleFight = t
   </main>
 }
 
-function Health({ fighter, info, maxHealth, maxStamina, side, special, slideCooldown }: { fighter: FighterState; info: FighterInfo; maxHealth: number; maxStamina: number; side: string; special: 'shoot' | 'kick'; slideCooldown: number }) { const reloading = fighter.reloadUntil > performance.now(); return <div className={`fighter-hud hud-${info.id}`}><span className={`hud-portrait frame-sprite ${info.sheet} action-idle`} /><section><em>{side} • {reloading ? 'RELOADING • 2 SECONDS' : special === 'shoot' ? `AMMO ${fighter.ammo} / 3` : info.style}</em><b>{info.name}</b><div className="health-track"><i style={{ width: `${fighter.health / maxHealth * 100}%` }} /></div><small key={fighter.hitId} className={fighter.hitId ? 'hp-readout changed' : 'hp-readout'}>HP: {Math.round(fighter.health)} / {maxHealth}</small><div className="stamina-track"><i style={{ width: `${fighter.stamina / maxStamina * 100}%` }} /></div><small>STAMINA: {Math.round(fighter.stamina)} / {maxStamina} · SLIDE {slideCooldown > 0 ? `${slideCooldown.toFixed(1)}s` : 'READY'}</small></section></div> }
-function Fighter({ fighter, info, side, targetX: _targetX, mmaAgent, winner, celebrating }: { fighter: FighterState; info: FighterInfo; side: Side; targetX: number; mmaAgent: boolean; winner: boolean; celebrating: boolean }) {
+function Health({ fighter, info, maxHealth, maxStamina, side, special, slideCooldown }: { fighter: FighterState; info: FighterInfo; maxHealth: number; maxStamina: number; side: string; special: 'shoot' | 'kick'; slideCooldown: number }) { const reloading = fighter.reloadUntil > performance.now(); return <div className={`fighter-hud hud-${info.id}`}><img className="hud-portrait hud-profile-image" src={getVersionOneDesignUrl(info.id)} alt="" /><section><em>{side} • {reloading ? 'RELOADING • 2 SECONDS' : special === 'shoot' ? `AMMO ${fighter.ammo} / 3` : info.style}</em><b>{info.name}</b><div className="health-track"><i style={{ width: `${fighter.health / maxHealth * 100}%` }} /></div><small key={fighter.hitId} className={fighter.hitId ? 'hp-readout changed' : 'hp-readout'}>HP: {Math.round(fighter.health)} / {maxHealth}</small><div className="stamina-track"><i style={{ width: `${fighter.stamina / maxStamina * 100}%` }} /></div><small>STAMINA: {Math.round(fighter.stamina)} / {maxStamina} · SLIDE {slideCooldown > 0 ? `${slideCooldown.toFixed(1)}s` : 'READY'}</small></section></div> }
+function Fighter({ fighter, info, side, targetX: _targetX, mmaAgent, winner, celebrating, mobileFight }: { fighter: FighterState; info: FighterInfo; side: Side; targetX: number; mmaAgent: boolean; winner: boolean; celebrating: boolean; mobileFight: boolean }) {
   const striking = ['punch', 'kick', 'slide', 'roundhouse'].includes(fighter.action)
   const sourceFacesLeft = info.baseFacing === 'left'
   const mirrored = (fighter.facing === 'left') !== sourceFacesLeft
   const sheet = mmaAgent ? 'agent-mma-frames' : info.sheet
   const healthRatio = fighter.health / info.maxHealth
   const reactionTier = healthRatio >= .75 ? 'reaction-3' : healthRatio >= .5 ? 'reaction-4' : 'reaction-5'
-  const groundedAction = ['slide', 'roundhouse', 'stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(fighter.action)
+  const groundedAction = ['slide', 'stagger', 'knockdown', 'hardKnockdown', 'missKnockdown'].includes(fighter.action)
   const swept = fighter.lastDamage === 30 && groundedAction
   const damageLabel = `-${fighter.lastDamage}${swept ? ' LOW SWEEP' : ''}`
   const visualAction = fighter.action
   const versionOneStrip = getVersionOneStrip(info.id, visualAction)
+  const holdsNewDesign = !versionOneStrip && (info.id === 'john' || info.id === 'conor')
   const stripStyle = versionOneStrip ? {
     backgroundImage: `url('${versionOneStrip.url}')`,
     '--strip-frames': versionOneStrip.frames,
     '--strip-steps': versionOneStrip.frames - 1,
     backgroundPositionY: '0',
-  } as CSSProperties : undefined
-  return <div translate="no" className={`fighter fighter-${info.id} ${side}-side ${fighter.health <= 0 ? 'knocked-out' : ''} ${winner ? 'victory-pose' : celebrating ? 'standard-winner-pose' : ''} ${reactionTier}`} style={{ left: `${clamp(fighter.x)}%`, bottom: `${74 + (groundedAction ? 0 : Math.max(0, fighter.y))}px` }}>
+  } as CSSProperties : holdsNewDesign ? {
+    backgroundImage: `url('${getVersionOneDesignUrl(info.id)}')`,
+  } : undefined
+  const floor = mobileFight ? 46 : 74
+  return <div translate="no" className={`fighter fighter-${info.id} ${side}-side ${fighter.health <= 0 ? 'knocked-out' : ''} ${winner ? 'victory-pose' : celebrating ? 'standard-winner-pose' : ''} ${reactionTier}`} style={{ left: `${clamp(fighter.x)}%`, bottom: `${floor + (groundedAction ? 0 : Math.max(0, fighter.y))}px` }}>
     <div className={`fighter-facing ${!winner && mirrored ? 'mirrored' : ''}`}><div className={fighter.hitId ? 'damage-react' : ''}>
-      {winner ? <div className="champion-animation" style={{ backgroundImage: `url('/assets/${info.id}-champion-frames.png')` }} aria-label={`${info.name} raising both hands with the FCB belt`} /> : celebrating ? <div className="winner-animation" style={{ backgroundImage: `url('/assets/${info.id}-winner-frames.png')` }} aria-label={`${info.name} raising both hands after winning`} /> : <div key={`${visualAction}-${fighter.actionId}`} className={`frame-sprite ${sheet} action-${visualAction} ${versionOneStrip ? 'version-one-strip' : ''}`} style={stripStyle} />}
+      {winner ? info.id === 'john' ? <div className="version-one-champion" aria-label={`${info.name} raising both hands with the FCB belt`}><div className="winner-animation version-one-winner" style={{ backgroundImage: "url('/assets/john-winner-frames-v1.png')" }} /><img src="/assets/fcb-menu-belt.png" alt="" /></div> : <div className="champion-animation" style={{ backgroundImage: `url('/assets/${info.id}-champion-frames.png')` }} aria-label={`${info.name} raising both hands with the FCB belt`} /> : celebrating ? <div className={`winner-animation ${info.id === 'john' ? 'version-one-winner' : ''}`} style={{ backgroundImage: `url('/assets/${info.id}-winner-frames${info.id === 'john' ? '-v1' : ''}.png')` }} aria-label={`${info.name} raising both hands after winning`} /> : <div key={`${visualAction}-${fighter.actionId}`} className={`frame-sprite ${sheet} action-${visualAction} ${versionOneStrip ? 'version-one-strip' : holdsNewDesign ? 'version-one-static' : ''}`} style={stripStyle} />}
       {striking && fighter.health > 0 && !celebrating && <i className={`hitbox ${fighter.action}`} />}
       {fighter.action === 'hardKnockdown' && <i className="counter-stars" aria-label="Stunned" />}
       {fighter.hitId > 0 && !celebrating && <><i className={`fighter-impact ${fighter.hitBy}`} /><b className={`damage-number ${swept ? 'low-sweep-damage' : ''}`} data-label={damageLabel} aria-label={damageLabel} /></>}

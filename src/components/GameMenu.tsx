@@ -4,6 +4,7 @@ import { FullscreenButton } from './FullscreenButton'
 import { ArenaBackdrop } from './ArenaBackdrop'
 import { lasVegasVenue } from '../game/venues'
 import type { Language } from '../lib/language'
+import { getVersionOneDesignUrl } from '../game/versionOneStrips'
 
 type Props = { language: Language; onOpenSettings: () => void; onPlay: (mode: GameMode, player: FighterId, opponent: FighterId) => void; onRegister: () => void; onSignOut: () => unknown; userEmail: string | null }
 type Slot = 'player' | 'opponent'
@@ -63,7 +64,7 @@ export function GameMenu({ language, onOpenSettings, onPlay, onRegister, onSignO
         onDoubleClick={() => !isTaken && (mode === 'solo' || mode === 'career' || mode === 'test') && onPlay(mode, fighter.id, opponent)}
       >
         <small className="roster-number">{String(index + 1).padStart(2, '0')}</small>
-        <i className={`frame-sprite ${fighter.sheet} action-idle`} />
+        <img className="roster-fighter-image" src={getVersionOneDesignUrl(fighter.id)} alt="" />
         <span><b>{fighter.name}</b><small>{isTaken ? 'P1 PICK' : fighter.style}</small></span>
       </button>
     })}
@@ -120,11 +121,11 @@ function ModeScreen({ language, onOpenSettings, onChoose, onRegister, onSignOut,
     <section className="entry-navigation"><small>{t.championship}</small><div className="entry-modes"><button onClick={() => setShowFormats(true)}><i><span aria-hidden="true">🥊</span><em>01</em></i><b>{t.mma}</b><span>{t.mmaHelp}</span></button><button onClick={() => onChoose('versus')}><i><span aria-hidden="true">VS</span><em>02</em></i><b>{t.versus}</b><span>{t.versusHelp}</span></button><button onClick={() => onChoose('solo')}><i><span aria-hidden="true">🏋</span><em>03</em></i><b>{t.gym}</b><span>{t.gymHelp}</span></button><button onClick={() => onChoose('test')}><i><span aria-hidden="true">8F</span><em>04</em></i><b>ANIMATION TEST</b><span>All fighters · All combat frames</span></button></div></section>
     <section className="menu-belt-stage"><small>FCB CHAMPION</small><img src="/assets/fcb-menu-belt.png" alt="FCB championship belt" /><b>THE ULTIMATE HONOR</b><span>EARN IT · DEFEND IT · BE LEGEND</span></section>
     <div className="entry-fighters" aria-label={`${featured.name} facing ${champion.name}`}>
-      <img className="menu-hero-islam" src="/assets/islam-menu-hero.png" alt="Islam Machete facing right" />
+      <img className="menu-hero-islam" src="/assets/islam-menu-faceoff-v1.png" alt="Islam Machete facing John Bones" />
       <span>FACE OFF</span>
-      <img className="menu-hero-john" src="/assets/john-menu-hero.png" alt="John Bones facing left" />
+      <img className="menu-hero-john" src="/assets/john-menu-faceoff-v1.png" alt="John Bones facing Islam Machete" />
     </div>
-    <aside className="menu-career-card"><small>ROAD TO THE FCB TITLE</small><div><span>FEATURED CONTENDER</span><strong>{featured.name}</strong></div><div><span>RECORD</span><b>{featured.record}</b></div><div><span>NEXT FIGHT</span><b>{featured.name} <em>VS</em> {champion.name}</b></div><footer>MAIN EVENT · FCB SEASON 01</footer></aside>
+    <aside className="menu-career-card"><small>★ ROAD TO THE FCB TITLE ★</small><div className="main-event-label">MAIN EVENT</div><h2>{featured.name}<em>VS</em>{champion.name}</h2><div className="event-details"><span>FCB SEASON 01</span><b>FCB ARENA</b></div><footer>LIVE ON <strong>FTR+</strong></footer></aside>
     <nav className="menu-utility"><button onClick={onOpenSettings}>{t.settings}</button><button>{t.store}</button><button>{t.extras}</button><button onClick={userEmail ? onSignOut : onRegister}>{userEmail ? t.signOut : t.account}</button></nav>
     {showFormats && <div className="mma-format-window"><button className="format-close" onClick={() => setShowFormats(false)}>← {t.back}</button><small>FIGHTRON MMA</small><h2>{t.choose}</h2><div><button onClick={() => onChoose('career')}><b>{t.career}</b><span>{t.careerHelp}</span></button><button onClick={() => onChoose('mma')}><b>{t.standard}</b><span>{t.rounds3}</span></button><button onClick={() => onChoose('shootout')}><b>SHOOTOUT</b><span>{t.rounds5}</span></button><button onClick={() => onChoose('short')}><b>{t.short}</b><span>{t.roundsShort}</span></button><button onClick={() => onChoose('brawl')}><b>BRAWL</b><span>{t.brawlHelp}</span></button></div></div>}
   </main>
@@ -145,7 +146,5 @@ function MmaOpponentPanel({ fighter, isChoosing }: { fighter: typeof fighters[Fi
 }
 
 function FighterHero({ fighter, compact = false }: { fighter: typeof fighters[FighterId]; compact?: boolean }) {
-  return fighter.id === 'khabibi'
-    ? <i role="img" aria-label={fighter.name} className={`${compact ? 'opponent-hero-sprite' : 'selection-hero-sprite'} frame-sprite ${fighter.sheet} action-idle`} />
-    : <img className={compact ? 'opponent-hero-image' : 'selection-hero-image'} src={`/assets/${fighter.id}-menu-fighter.png`} alt={fighter.name} />
+  return <img className={compact ? 'opponent-hero-image' : 'selection-hero-image'} src={getVersionOneDesignUrl(fighter.id)} alt={fighter.name} />
 }

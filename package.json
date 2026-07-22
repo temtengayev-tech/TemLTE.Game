@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "animations:verify": "python3 scripts/verify_version_one_strips.py",
     "preview": "vite preview",
     "db:login": "supabase login",
     "db:link": "supabase link",

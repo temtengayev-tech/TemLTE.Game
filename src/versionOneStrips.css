@@ -18,5 +18,100 @@
   background-size: calc(var(--strip-frames, 12) * 100%) 100% !important;
   background-position-y: 0 !important;
   background-repeat: no-repeat !important;
-  animation: combat-version-one-strip .72s steps(var(--strip-steps, 11), end) both !important;
+  animation: combat-version-one-strip .64s steps(var(--strip-steps, 11), end) both !important;
+}
+
+.fight-screen .frame-sprite.version-one-strip.action-run,
+.solo-ring .frame-sprite.version-one-strip.action-run {
+  animation-duration: .58s !important;
+  animation-iteration-count: infinite !important;
+}
+
+.frame-sprite.version-one-strip.action-slide {
+  animation-duration: .65s !important;
+}
+
+.fight-screen .frame-sprite.version-one-strip.action-idle,
+.solo-ring .frame-sprite.version-one-strip.action-idle {
+  animation-duration: 1.4s !important;
+  animation-iteration-count: infinite !important;
+}
+
+.frame-sprite.version-one-strip.action-punch,
+.frame-sprite.version-one-strip.action-kick {
+  animation-duration: .5s !important;
+}
+
+.frame-sprite.version-one-strip.action-jump {
+  animation-duration: .84s !important;
+}
+
+.frame-sprite.version-one-strip.action-roundhouse {
+  animation-duration: .88s !important;
+}
+
+.frame-sprite.version-one-strip.action-stagger {
+  animation-duration: .95s !important;
+}
+
+.frame-sprite.version-one-strip.action-knockdown,
+.frame-sprite.version-one-strip.action-hardKnockdown,
+.frame-sprite.version-one-strip.action-missKnockdown,
+.frame-sprite.version-one-strip.action-recovery {
+  animation-duration: .9s !important;
+}
+
+.fight-screen .frame-sprite.version-one-static {
+  position: static !important;
+  inset: auto !important;
+  width: 100% !important;
+  height: auto !important;
+  aspect-ratio: 1 !important;
+  translate: none !important;
+  scale: 1 !important;
+  background-position: 0 0 !important;
+  background-repeat: no-repeat !important;
+  background-size: 100% 100% !important;
+  animation: none !important;
+}
+
+.roster-fighter-image,
+.hud-profile-image {
+  object-fit: contain;
+  object-position: center bottom;
+}
+
+.roster-strip .roster-fighter-image {
+  width: 4.25rem;
+  height: 5.25rem;
+  align-self: end;
+}
+
+.fighter-hud .hud-profile-image {
+  display: block;
+  padding: .25rem;
+}
+
+.winner-animation.version-one-winner {
+  aspect-ratio: 1 !important;
+  background-size: 800% 100% !important;
+  image-rendering: auto !important;
+  animation: john-champion-raise 1.65s .3s steps(7, end) forwards,
+    champion-arrive .55s ease-out both !important;
+}
+
+.version-one-champion {
+  position: relative;
+  width: 100%;
+}
+
+.version-one-champion > img {
+  position: absolute;
+  z-index: 2;
+  left: 50%;
+  top: 56%;
+  width: 62%;
+  translate: -50% -50%;
+  filter: drop-shadow(0 .35rem .25rem #0009);
+  pointer-events: none;
 }

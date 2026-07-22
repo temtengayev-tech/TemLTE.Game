@@ -11,6 +11,7 @@ import { AnimationTestMode } from './components/AnimationTestMode'
 import type { GameSetup } from './game/fighters'
 import { supabase } from './lib/supabase'
 import { loadLanguage, saveLanguage, type Language } from './lib/language'
+import { playFightSound } from './lib/fightSounds'
 
 type PhoneCanvasStyle = CSSProperties & {
   '--phone-scale'?: string
@@ -42,6 +43,15 @@ export default function App() {
     supabase.auth.getSession().then(({ data }) => setSession(data.session))
     const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => setSession(nextSession))
     return () => data.subscription.unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    const playButtonClick = (event: MouseEvent) => {
+      const button = event.target instanceof Element ? event.target.closest('button') : null
+      if (button && !button.disabled) playFightSound('click', .3)
+    }
+    document.addEventListener('click', playButtonClick, true)
+    return () => document.removeEventListener('click', playButtonClick, true)
   }, [])
 
   useEffect(() => {

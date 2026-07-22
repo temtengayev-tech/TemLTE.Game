@@ -1,4 +1,4 @@
-export type FightSound = 'punch' | 'kick' | 'slide' | 'roundhouse' | 'knockdown' | 'knockout'
+export type FightSound = 'punch' | 'kick' | 'slide' | 'roundhouse' | 'knockdown' | 'knockout' | 'click' | 'roundBell'
 
 const soundFiles: Record<FightSound, string> = {
   punch: '/assets/sounds/punch.mp3',
@@ -7,6 +7,8 @@ const soundFiles: Record<FightSound, string> = {
   roundhouse: '/assets/sounds/spin.mp3',
   knockdown: '/assets/sounds/fall.mp3',
   knockout: '/assets/sounds/knockout.mp3',
+  click: '/assets/sounds/click.mp3',
+  roundBell: '/assets/sounds/round-bell.mp3',
 }
 
 export function playFightSound(sound: FightSound, volume = .65) {
